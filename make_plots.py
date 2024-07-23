@@ -10,7 +10,7 @@ def get_traj_list(env, agent, target):
     while not terminated:
       action = agent.act(state)
       next_state, reward, terminated = env.step(action)
-      if next_state['time'] > 260:
+      if next_state['time'] > 0:
         x, y = next_state['position']
         trajectory['x'].append(x)
         trajectory['y'].append(y)
