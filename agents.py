@@ -12,7 +12,7 @@ class RandomAgent:
     if state['time']<0:
       velocity = 0
     else:
-      velocity = self.action_space['velocity'].sample()[0]
+      velocity = self.action_space['velocity'].sample()
 
     # pick random angle
     angle = self.action_space['angle'].sample()[0]
@@ -21,9 +21,10 @@ class RandomAgent:
     action = {'angle': angle, 'velocity': velocity}
     return action
 
+
 # OPTIMAL WITH MOTOR NOISE #
 class OptimalAgent:
-  def __init__(self, env, motor_noise=1):
+  def __init__(self, env, motor_noise=0.5):
     self.env = env
     self.action_space = env.action_space
     self.observation_space = env.observation_space
@@ -58,48 +59,71 @@ class OptimalAgent:
 
       return best_action
 
+
 # OPTIMAL WITH BELIEF UPDATING # NOT FINISHED
 class OptimalBeliefAgent:
-  def __init__(self, env, lr=0.02, belief_noise=0.01, motor_noise=1):
+  def __init__(self, env, lr=0.001, belief_noise=0.01, motor_noise=0.5):
+    self.env = env
     self.action_space = env.action_space
     self.observation_space = env.observation_space
     self.locationX = env.locationX
     self.locationY = env.locationY
+    # initialize target and jump target
+    self.target = None
+    self.postjump_target = None
     # implement parameters
     self.lr = lr
     self.belief_noise = belief_noise
     self.motor_noise = motor_noise
     # initialize belief about target
     self.p = 0.5
+  
+  def reset_belief(self):
+    self.p = 0.5
+    self.target = None
+    self.postjump_target = None
+
+  def update_belief(self, state):
+    # if first time, update target
+    if not self.target:
+      self.target = state['target']
+    # if target jumped, update postjump target
+    if state['target']!= self.target:
+      self.postjump_target = state['target']
+
+    # do belief updating
+    if state['target']==self.target:
+      self.p = min(0.99999, self.p+self.lr+np.random.normal(0, self.belief_noise)) 
+    elif state['target']==self.postjump_target:
+      self.p = max(0.00001, self.p-self.lr+np.random.normal(0, self.belief_noise))
+    
+    return self.p
 
   def act(self, state):
-    self.target = env.target
-    self.jump_time = env.jump_time
-    self.postjump_target = env.postjump_target
-    # start with belief updating step
-    if self.target!=self.postjump_target and state['time']>self.jump_time:
-        self.p -= self.lr+np.random.normal(0, self.belief_noise)
-    else:
-        self.p += self.lr+np.random.normal(0, self.belief_noise)
+    # first update belief
+    p = self.update_belief(state)
         
     # determine velocity based on time
     if state['time']<0:
+      angle = 0
       velocity = 0
-    else:
-      velocity = 1
+      action = {'angle': angle, 'velocity': velocity}
+      return action
     
-    # use belief to figure out the goal target location
-    if np.random.rand() < self.p:
-        tloc_x, tloc_y = (self.locationX[self.target], self.locationY[self.target])
     else:
-        tloc_x, tloc_y = (self.locationX[self.postjump_target], self.locationY[self.postjump_target])
-    
-    # angle that minimizes distance to believed target + small amount of gaussian noise
-    x,y = state['position']
-    possible_actions = np.linspace(-np.pi, np.pi, 360)
-    dist = [np.sqrt(((x+1000/130*np.cos(ori))-tloc_x)**2 + ((y+1000/130*np.sin(ori))-tloc_y)**2) for ori in possible_actions]
-    angle = possible_actions[dist.index(min(dist))] + np.random.normal(0, self.motor_noise)
+      # choose angle and velocity to minimize cost
+      possible_angles = np.linspace(-np.pi, np.pi, 360)
+      possible_velocities = [0,1,2,3]
+      min_cost, best_action = 999999, None
+      for angle in possible_angles:
+        for velocity in possible_velocities:
+          action = {'angle': angle, 'velocity': velocity}
+          _, cost, _ = self.env.simulate_step(state, action, p)
+          if cost < min_cost:
+            min_cost = cost
+            best_action = action
+      
+      # apply some motor noise and return
+      best_action['angle'] = best_action['angle'] + np.random.normal(0, self.motor_noise)
 
-    # assemble and return action
-    action = {'angle': angle, 'velocity': velocity}
-    return action
+      return best_action
