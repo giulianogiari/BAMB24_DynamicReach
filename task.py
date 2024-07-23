@@ -97,11 +97,11 @@ class DynamicReach(Env):
 
     return next_state, cost, terminated
     
-  def simulate_step(self, action, belief=None):
+  def simulate_step(self, state, action, belief=None):
     terminated = False
 
     # perform movement at chosen velocity
-    x,y = self.state['position']
+    x,y = state['position']
     x = x + action['velocity'] * np.cos(action['angle'])
     y = y + action['velocity'] * np.sin(action['angle'])
 
@@ -112,7 +112,7 @@ class DynamicReach(Env):
       Jx = self.dist_cost * Jx1 + self.dist_cost * Jx2
     else:
       Jx = self.dist_cost * np.sqrt((x-self.target_location[0])**2 + (y-self.target_location[1])**2)
-    Ju = (self.move_cost * (self.state['time']/1000)) * action['velocity'] # move cost increases with time & velocity
+    Ju = (self.move_cost * (state['time']/1000)) * action['velocity'] # move cost increases with time & velocity
     cost = Jx + Ju
 
     # check if target is reached
@@ -121,11 +121,11 @@ class DynamicReach(Env):
       terminated = True
 
     # let time pass
-    if self.state['time']+1 >= 4000:
-      time = self.state['time']
+    if state['time']+1 >= 4000:
+      time = state['time']
       terminated = True
     else:
-      time = self.state['time']+1
+      time = state['time']+1
 
     # assemble next state
     target = [self.target, self.postjump_target][int(self.allow_jump)*int(self.do_jump)*int(time>=self.jump_time)]
