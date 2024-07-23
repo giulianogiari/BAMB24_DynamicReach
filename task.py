@@ -80,7 +80,7 @@ class DynamicReach(Env):
 
     # check if target is reached
     tloc_x, tloc_y = [self.target_location, self.postjump_target_location][int(self.allow_jump)*int(self.do_jump)]
-    if np.sqrt((x-tloc_x)**2 + (y-tloc_y)**2) < 12.5:
+    if np.sqrt((x-tloc_x)**2 + (y-tloc_y)**2) < 2:
       terminated = True
 
     # let time pass
