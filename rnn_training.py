@@ -41,9 +41,9 @@ dataset = Dataset(env,
                   seq_len=env_kwargs['seq_len'])
 
 """ SETUP THE NETWORK """
-rnn = RNN(net_kwargs['hidden_size'], 
-          net_kwargs['output_size'], 
-          net_kwargs['input_size'])
+rnn = RNN(hidden_size=net_kwargs['hidden_size'], 
+          output_size=net_kwargs['output_size'], 
+          input_size=net_kwargs['input_size'])
 # Move network to the device (CPU or GPU)
 rnn = rnn.to(device)
 # Define loss: we use mse which corresponds to euclidean distance between the predicted and the true action
