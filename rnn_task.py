@@ -2,11 +2,9 @@
 Environment for a reaching task
 based on neurogym
 https://neurogym.github.io/understanding_neurogym_task.html
-TODO:
-- add jump
-- add proper labels
 """
 
+import matplotlib.pyplot as plt
 import numpy as np
 import random
 # import gym and neurogym to create tasks
@@ -185,21 +183,23 @@ class MyEnv(ngym.TrialEnv):
             ground truth: correct response for the trial
             obs: observation
         """
+        # Periods
+        self.add_period(list(self.timing.keys()))
+
         target_ind = self.rng.choice(np.arange(len(self.possible_target_locations)))
         target_pos = self.possible_target_locations[target_ind, :]
         if self.jump_percent > self.rng.rand():
-            print('defining new target')
             is_jump = True
             new_target = _choose_coordinate(self.possible_target_locations, 
                                             target_pos)
             # random time for the jump
             # between 150 and 550 ms before the reach period following the paper
-            #jump_time = self.rng.randint(self.timing['fixation']-550,
-            #                            self.timing['fixation']-150)
+            jump_time = self.rng.randint(self.start_ind['jump'],
+                                        self.end_ind['jump'])
         else:
             is_jump = False
             new_target = target_pos
-            #jump_time = None
+            jump_time = None
 
         # Trial info
         trial = {
@@ -209,9 +209,6 @@ class MyEnv(ngym.TrialEnv):
             'second_target': new_target,
         }
         trial.update(kwargs)
-
-        # Periods
-        self.add_period(list(self.timing.keys()))
 
         # Observations
         # period relates to timing in self.timing
@@ -229,10 +226,14 @@ class MyEnv(ngym.TrialEnv):
                     period=['fixation1', 'jump', 'fixation2', 'reach'], 
                     where='target_position_y')
         if is_jump:
-            self.add_ob(target_pos[0], 
-                    period=['jump', 'fixation2', 'reach'], where='target_position_x')
-            self.add_ob(target_pos[1], 
-                    period=['jump', 'fixation2', 'reach'], where='target_position_y')
+            # here it creates a "view" of the observation,
+            # thus we can change the observation variable and it will be reflected in the environment
+            stim = self.view_ob()
+            stim[jump_time:, :2] = new_target
+            #self.add_ob(target_pos[0], 
+            #        period=['jump', 'fixation2', 'reach'], where='target_position_x')
+            #self.add_ob(target_pos[1], 
+            #        period=['jump', 'fixation2', 'reach'], where='target_position_y')
             
         # Ground truth
         # this is kind of a constanst velocity 
@@ -292,16 +293,35 @@ def _choose_coordinate(coords, current_coord):
     return chosen_coord
 
 
-if __name__ == '__main__':
+def plot_simulation(inputs, labels):
+    """ Plot the simulated data """
+    fig, ax = plt.subplots(2, 1, figsize=(10, 5))
+    ax[0].plot(inputs[:, 0, 0], '.-', label='x', color='r')
+    ax[0].plot(inputs[:, 0, 1], '.-', label='y', color='b')
+    # add different yaxis for ax[0] using twinx
+    ax[0].legend()
+    ax[0].set_ylabel('position')
+    ax2 = ax[0].twinx()  # instantiate a second Axes that shares the same x-axis
+    ax2.plot(inputs[:, 0, 2], '.-', label='fixation', color='k')
+    ax2.set_ylabel('movement')
+    ax[0].set_title('Inputs')
+    ax[1].plot(labels[:, 0, 0], '.-',label='x')
+    ax[1].plot(labels[:, 0, 1], '.-',label='y')
+    ax[1].set_ylabel('position')
+    ax[1].legend()
+    ax[1].set_title('Labels')
+    ax[1].set_xlabel('Time (Samples)')
+    plt.show()
+    
 
-    import matplotlib.pyplot as plt
+if __name__ == '__main__':
 
     BATCH_SIZE = 16
     SEQ_LEN = 260
     DT = 7
 
     # create an instance of the environment
-    env = MyEnv(dt=DT, jump_percent=1)
+    env = MyEnv(dt=DT, jump_percent=.3)
 
     # from neurogym.utils.data import Dataset
     # this line of code in neurogym does not work, thus i had to copy the class here
@@ -314,19 +334,4 @@ if __name__ == '__main__':
     assert inputs.shape == (SEQ_LEN, BATCH_SIZE, env.observation_space.shape[0])
     assert labels.shape == (SEQ_LEN, BATCH_SIZE, env.action_space.shape[0])
 
-    # plot the simulated data
-    fig, ax = plt.subplots(2, 1, figsize=(10, 5))
-    ax[0].plot(inputs[:, 0, 0], '.-', label='x', color='r')
-    ax[0].plot(inputs[:, 0, 1], '.-', label='y', color='b')
-    # add different yaxis for ax[0] using twinx
-    ax[0].legend()
-    ax2 = ax[0].twinx()  # instantiate a second Axes that shares the same x-axis
-    ax2.plot(inputs[:, 0, 2], '.-', label='fixation', color='k')
-    ax[1].plot(labels[:, 0, 0], '.-',label='x')
-    ax[1].plot(labels[:, 0, 1], '.-',label='y')
-    ax[1].legend()
-    #plt.setp(ax, xlim=(200, 250))
-
-    # output angle
-
-    
+    plot_simulation(inputs, labels)
