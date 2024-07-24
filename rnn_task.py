@@ -8,6 +8,7 @@ TODO:
 """
 
 import numpy as np
+import random
 # import gym and neurogym to create tasks
 from neurogym import spaces
 import neurogym as ngym
@@ -135,7 +136,7 @@ class Dataset(object):
 
 
 class MyEnv(ngym.TrialEnv):
-    def __init__(self, dt=7, timing=None):
+    def __init__(self, dt=7, timing=None, jump_percent=.3):
         """
         dt: int, time step in ms, default 7ms corresponding to 130 Hz
         """
@@ -143,9 +144,12 @@ class MyEnv(ngym.TrialEnv):
         super().__init__(dt=dt) 
 
         # define timing for the task
-        # TODO: add jump
+        self.jump_percent = jump_percent
+
         self.timing = {
-            'fixation': 1500,
+            'fixation1': 750,
+            'jump': 600,
+            'fixation2': 150,
             'reach': 500}
         if timing:
             self.timing.update(timing)
@@ -181,11 +185,28 @@ class MyEnv(ngym.TrialEnv):
             ground truth: correct response for the trial
             obs: observation
         """
-        # Trial info
         target_ind = self.rng.choice(np.arange(len(self.possible_target_locations)))
+        target_pos = self.possible_target_locations[target_ind, :]
+        if self.jump_percent > self.rng.rand():
+            print('defining new target')
+            is_jump = True
+            new_target = _choose_coordinate(self.possible_target_locations, 
+                                            target_pos)
+            # random time for the jump
+            # between 150 and 550 ms before the reach period following the paper
+            #jump_time = self.rng.randint(self.timing['fixation']-550,
+            #                            self.timing['fixation']-150)
+        else:
+            is_jump = False
+            new_target = target_pos
+            #jump_time = None
+
+        # Trial info
         trial = {
-            'ground_truth': self.possible_target_locations[target_ind, :],
-            'target_ind': target_ind
+            'ground_truth': new_target,
+            'is_jump': is_jump,
+            'first_target': target_pos,
+            'second_target': new_target,
         }
         trial.update(kwargs)
 
@@ -197,20 +218,26 @@ class MyEnv(ngym.TrialEnv):
         # where here relates to name in self.observation space
 
         # add observation for movement
-        self.add_ob(0, period='fixation', where='movement')
+        self.add_ob(0, period=['fixation1', 'jump', 'fixation2'], where='movement')
         self.add_ob(1, period='reach', where='movement')
 
         # add observation for target position
-        self.add_ob(self.possible_target_locations[target_ind, 0], 
-                    period=['fixation', 'reach'], where='target_position_x')
-        self.add_ob(self.possible_target_locations[target_ind, 1], 
-                    period=['fixation', 'reach'], where='target_position_y')
-        # TODO: add jump
-
+        self.add_ob(target_pos[0], 
+                    period=['fixation1', 'jump', 'fixation2', 'reach'], 
+                    where='target_position_x')
+        self.add_ob(target_pos[1], 
+                    period=['fixation1', 'jump', 'fixation2', 'reach'], 
+                    where='target_position_y')
+        if is_jump:
+            self.add_ob(target_pos[0], 
+                    period=['jump', 'fixation2', 'reach'], where='target_position_x')
+            self.add_ob(target_pos[1], 
+                    period=['jump', 'fixation2', 'reach'], where='target_position_y')
+            
         # Ground truth
         # this is kind of a constanst velocity 
         self._set_groundtruth([0,0], 
-                              period='fixation')
+                              period=['fixation1', 'jump', 'fixation2'])
         self._set_groundtruth(trial['ground_truth'], 
                              period='reach')
         return trial
@@ -247,6 +274,24 @@ class MyEnv(ngym.TrialEnv):
         return None, None, None, {'trial': self.trial}
     
 
+def _opposite_coordinate(coord, center=[0,0]):
+    """ calculate the opposite coordinate of a given coordinate"""
+    x_center, y_center = center
+    x, y = coord
+    x_opposite = 2 * x_center - x
+    y_opposite = 2 * y_center - y
+    return (x_opposite, y_opposite)
+
+def _choose_coordinate(coords, current_coord):
+    """ choose a coordinate from a list of coordinates that is not the opposite of the current coordinate"""
+    opposite_coord = _opposite_coordinate(current_coord)
+    # Filter out the opposite coordinate
+    valid_coords = [coord for coord in coords if all(coord != opposite_coord)]
+    # Randomly select a valid coordinate
+    chosen_coord = random.choice(valid_coords)
+    return chosen_coord
+
+
 if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
@@ -256,7 +301,7 @@ if __name__ == '__main__':
     DT = 7
 
     # create an instance of the environment
-    env = MyEnv(dt=DT)
+    env = MyEnv(dt=DT, jump_percent=1)
 
     # from neurogym.utils.data import Dataset
     # this line of code in neurogym does not work, thus i had to copy the class here
@@ -283,3 +328,5 @@ if __name__ == '__main__':
     #plt.setp(ax, xlim=(200, 250))
 
     # output angle
+
+    
