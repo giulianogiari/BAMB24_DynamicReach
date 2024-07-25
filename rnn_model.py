@@ -26,12 +26,9 @@ class RNN(nn.Module):
         self.apply(init_weights)
 
 
-    def forward(self, x, hidden=None):
-        if hidden is None:
-            # initialize hidden state
-            hidden = torch.zeros(1, x.shape[1], self.hidden_size) * 0.01
+    def forward(self, x):
         # get the output of the network for a given input
-        out, _ = self.recurrent(x, hidden)
+        out, _ = self.recurrent(x)
         x = self.linear(out)
         return x, out
     
