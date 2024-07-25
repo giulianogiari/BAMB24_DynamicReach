@@ -70,16 +70,20 @@ class MyEnv(ngym.TrialEnv):
         target_pos = self.possible_target_locations[target_ind, :]
         if self.jump_percent > self.rng.rand():
             is_jump = True
-            new_target = _choose_coordinate(self.possible_target_locations, 
-                                            target_pos)
+            new_target_ind = (target_ind + self.rng.choice([-3, -1, 1, 3])) % 8
+            #new_target_ind = np.roll(possible_new_targets, self.rng.choice([-3, -1, 1, 3]))[0]
+            new_target = self.possible_target_locations[new_target_ind, :]
             # random time for the jump
             # between 150 and 550 ms before the reach period following the paper
             jump_time = self.rng.randint(self.start_ind['jump'],
                                         self.end_ind['jump'])
+            # compute the angle of the jump
+            jump_angle = _compute_angle(target_pos, new_target)
         else:
             is_jump = False
             new_target = target_pos
             jump_time = None
+            jump_angle = None
 
         # Trial info
         trial = {
@@ -87,6 +91,8 @@ class MyEnv(ngym.TrialEnv):
             'is_jump': is_jump,
             'first_target': target_pos,
             'second_target': new_target,
+            'jump_time': jump_time,
+            'jump_angle': jump_angle,
         }
         trial.update(kwargs)
 
@@ -171,6 +177,14 @@ def _choose_coordinate(coords, current_coord):
     # Randomly select a valid coordinate
     chosen_coord = random.choice(valid_coords)
     return chosen_coord
+
+
+def _compute_angle(coords1, coords2):
+    """ compute angle between cartesian coordinates """
+    x1, y1 = coords1
+    x2, y2 = coords2
+    angle = np.arctan2(y2-y1, x2-x1) * 180 / np.pi
+    return angle
 
 
 def plot_simulation(inputs, labels):
