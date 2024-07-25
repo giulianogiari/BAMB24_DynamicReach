@@ -22,7 +22,6 @@ net_kwargs = {'hidden_size': 64,
             'weight_decay': 0.01,
             'batch_size': 32,
             'n_epochs': 1_000,
-            'n_hidden': 64, 
             } 
 # enviroment
 FS = 130
@@ -86,6 +85,11 @@ for i in range(net_kwargs['n_epochs']):
     outputs = outputs.view(-1, env.action_space.shape[0])
 
     # compute loss with respect to the labels
+    # remember that one thing is what the network produces, another thing is how it is evaluated
+    # this means that loss can be computed with respect to other transformations of the predictions
+    # the important thing is that they can be back propagated
+    # e.g., we can add another term to the loss such as the jerk (3rd derivative of the movement)
+    #       for both the real and predicted movements and penalize the network for not reproducing it
     labels = labels.view(-1, env.action_space.shape[0])
     loss = criterion(outputs, labels.float())
 
