@@ -1,0 +1,1 @@
+{"env_kwargs": {"dt": 7, "t_max": 2, "n_trls_seq": 3, "fs": 130, "seq_len": 780, "jump_percent": 0.8}, "net_kwargs": {"hidden_size": 64, "output_size": 2, "input_size": 3, "nonlinearity": "tanh", "learning_rate": 0.01, "weight_decay": 0.01, "batch_size": 32, "n_epochs": 1000}}
